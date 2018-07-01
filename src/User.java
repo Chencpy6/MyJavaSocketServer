@@ -4,8 +4,9 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-///////////////////////////////////////////////////////////
+
 public class User implements Runnable{
 	private String userName = "";
 	private Thread t;
@@ -38,7 +39,7 @@ public class User implements Runnable{
 			if(client!=null) {
 		         DataInputStream in = new DataInputStream(client.getInputStream());
 			     while(true) {
-			        messageLength = in.read(buffer,0,buffer.length);
+			        messageLength += in.read(buffer,messageLength,buffer.length-messageLength);
 			        ReadMessage();
 		         }
 			}
@@ -78,11 +79,24 @@ public class User implements Runnable{
 		byte[] type_byte = new byte[4]; 
 		int length = 0;
 		int type = 0;
-		while(messageLength>8) {
+		while(true) {
+			if(messageLength>8) {
 			System.arraycopy(buffer,readOffset,b1_length,0,b1_length.length);
 			length = (int) ((b1_length[0] & 0xff) | ((b1_length[1] & 0xff) << 8) 
 			| ((b1_length[2] & 0xff) << 16) | ((b1_length[3] & 0xff) << 24)); 
-			if(length>messageLength-4||length<=4)return;
+			if(length<=4) {
+				readOffset += 4+length;
+				messageLength -= length+4;
+				continue;
+			}
+			//解决半包问题
+			if(length>messageLength-4) {
+				if(length>buffer.length-4) {
+					buffer = Arrays.copyOf(buffer, length+4);
+				}
+				System.arraycopy(buffer,readOffset,buffer,0,messageLength);
+				return;
+			}
 
 			readOffset += 4;
 			System.arraycopy(buffer,readOffset,type_byte,0,type_byte.length);
@@ -122,7 +136,14 @@ public class User implements Runnable{
 					break;
 				}
 				messageLength -= length+4;
-			}
+			}else {
+				System.arraycopy(buffer,readOffset,buffer,0,messageLength);
+				if(buffer.length>2048) {
+					buffer = Arrays.copyOf(buffer, 2048);
+				}
+				//break;
+				return;
+			}}
 		}catch (Exception e) {  }
 	}
 
