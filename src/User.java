@@ -150,6 +150,9 @@ public class User implements Runnable{
 				case 10:
 					GetAllFileInRoom(length);
 					break;
+				case 11:
+					UserGetFileInRoom(length);
+					break;
 				}
 				messageLength -= length+4;
 			}else {
@@ -162,6 +165,15 @@ public class User implements Runnable{
 			}}
 		}catch (Exception e) {  }
 	}
+	
+	private void UserGetFileInRoom(int length) throws UnsupportedEncodingException {
+		byte[] message = new byte[length-4];
+		System.arraycopy(buffer,readOffset,message,0,message.length);
+		String s = new String(message,"UTF-8");
+		readOffset += length-4;
+		server.UserGetFileInRoom(this,s);
+	}
+	
 	private void UserSendFile(int subLength) {
 		byte[] temp_b;
 		try {
@@ -241,6 +253,18 @@ public class User implements Runnable{
 	private void GetAllFileInRoom(int length) {
 		readOffset += length-4;
 		server.GetAllFileInRoom(this);
+	}
+	//文件传输用
+	public void SendMessage(String message,long l,int Type) {
+		try {
+			BuildMessage(message,l,Type);
+			out.write(buffer2,0,messageLength2);
+		}catch(Exception e) { }
+	}
+	public void SendMessage(byte[] bytes,int length) {
+		try {
+			out.write(bytes,0,length);
+		}catch(Exception e) {}
 	}
 	
 	public void SendMessage(String message,int Type) {
@@ -322,6 +346,41 @@ public class User implements Runnable{
 		return messageLength2;
 	}
 	
+	private int BuildMessage(String s,long l,int type) {
+		try {
+		byte[] b1 = s.getBytes("UTF-8");
+		byte[] b2 = long2Bytes(l);
+		
+		int i = 0;
+		int b1_l = 0;
+		int b2_l = 0;
+		
+		messageLength2 = b1.length + b2.length + 16;
+		b1_l = b1.length;
+		b2_l = b2.length;
+		i = messageLength2-4;
+		
+		byte[] b_length = TurnIntToBytes(i); 	
+		byte[] type_byte = TurnIntToBytes(type); 
+		byte[] b1_length = TurnIntToBytes(b1_l);
+		byte[] b2_length = TurnIntToBytes(b2_l);
+		
+		System.arraycopy(b_length,0,buffer2,0,b_length.length);
+		System.arraycopy(type_byte,0,buffer2,
+				b_length.length,type_byte.length);
+		System.arraycopy(b1_length,0,buffer2,
+				b_length.length+type_byte.length,b1_length.length);
+		System.arraycopy(b1,0,buffer2,
+				b_length.length+type_byte.length+b1_length.length,b1.length);
+		System.arraycopy(b2_length,0,buffer2,
+				b_length.length+type_byte.length+b1_length.length+b1.length,b2_length.length);
+		System.arraycopy(b2,0,buffer2,
+				b_length.length+type_byte.length+b1_length.length+b1.length+b2_length.length,b2.length);
+		}catch(Exception e) {
+			
+		}
+		return messageLength2;
+	}
 		//只能用于有多个值信息
 		private String getStringFromBuffer() throws UnsupportedEncodingException {
 			byte[] messageL = new byte[4];
@@ -356,7 +415,14 @@ public class User implements Runnable{
 				| ((b[2] & 0xff) << 16) | ((b[3] & 0xff) << 24));
 		return i;
 	}
-	
+	public byte[] long2Bytes(long num) {
+		byte[] byteNum = new byte[8];
+		for (int ix = 0; ix < 8; ++ix) {
+			int offset = 64 - (ix + 1) * 8;
+			byteNum[ix] = (byte) ((num >> offset) & 0xff);
+		}
+		return byteNum;
+	}
 	public static long bytes2Long(byte[] byteNum) {
 		long num = 0;
 		for (int ix = 0; ix < 8; ++ix) {

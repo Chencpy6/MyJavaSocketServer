@@ -166,7 +166,11 @@ public class SocketServer implements Runnable{
 	public void FindAllRooms(User user) {
 		SendTool.FindAllRoomsReturn(user, findAllUnLockRooms(), findAllLockedRooms());
 	}
-	
+	public void UserGetFileInRoom(User user,String fileName) {
+		String path = ".\\Rooms\\"+user.getRoom().getRoomName()+"\\"+fileName;
+		File file=new File(path);
+		SendTool.GetFileInRoomReturn(user, path);
+	}
 	public void GetAllFileInRoom(User user) {
 		String filesName = "";
 		String path = ".\\Rooms\\"+user.getRoom().getRoomName();

@@ -1,3 +1,6 @@
+import java.io.File;
+import java.io.FileInputStream;
+
 public class SendTool {
 	public static void LoginReturn(User user,String succeedOrNot,String error) {
 		if (error==null)error="";
@@ -35,9 +38,41 @@ public class SendTool {
 		System.out.println("发送所有文件名： "+filesName);
 		user.SendMessage(filesName, 10);
 	}
+	
 	public static void UserSendFileReturn(User user,String succeedOrNot,String error) {
 		if (error==null)error="";
 		System.out.println("接受文件: "+succeedOrNot+" error: "+error);
 		user.SendMessage(succeedOrNot, error, 9);
+	}
+	
+	public static void GetFileInRoomReturn (User user,String path) {
+		System.out.println("向客户端发送文件： "+path);
+		FileInputStream fis;
+		try {
+			File file = new File(path);
+			if(file.exists()) {
+				if(file.isDirectory())return;
+                fis = new FileInputStream(file);
+                String fileName = file.getName();
+                if(fileName.equals("")||fileName==null)return;
+                long fileLength = file.length();
+                user.SendMessage(fileName,fileLength, 11);
+        		
+        		byte[] bytes = new byte[2048];
+                int length = 0;
+                long progress = 0;
+                while((length = fis.read(bytes, 0, bytes.length)) != -1) {
+                	user.SendMessage(bytes,length);
+                    
+                    //打印传输的百分比
+                    progress += length;
+                    System.out.print("| " + (100*progress/file.length()) + "% |");
+                }
+                System.out.println(" ");
+                fis.close();
+            }else {
+            	user.SendMessage("None",-1, 11);
+			}
+		}catch(Exception e) {}
 	}
 }
