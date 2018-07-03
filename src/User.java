@@ -15,6 +15,7 @@ public class User implements Runnable{
 
 	private SocketServer server;
 	DataOutputStream out;
+	DataInputStream in;
 	private Room room;
 	public User(Socket client,SocketServer server) {
 		this.client = client;
@@ -37,7 +38,7 @@ public class User implements Runnable{
 	public void run() {
 		try {
 			if(client!=null) {
-		         DataInputStream in = new DataInputStream(client.getInputStream());
+		         in = new DataInputStream(client.getInputStream());
 			     while(true) {
 			        messageLength += in.read(buffer,messageLength,buffer.length-messageLength);
 			        ReadMessage();
@@ -49,12 +50,20 @@ public class User implements Runnable{
 	    }catch (Exception e) {
 		    //e.printStackTrace();
 	    	//System.out.println(e);
+		}finally {
+			try {
+				out.close();
+				in.close();
+				client.close();
+			}catch(Exception e) {}
 		}
 		if(room!=null) {
 			List<User> t_Users = room.getRoomUser();
 			if(t_Users.size()<=1) {
 				room.RemoveUser(this);
 				server.getRooms().remove(room);
+				
+				server.DeleteRoomFile(room.getRoomName());
 			}else {
 				room.RemoveUser(this);
 				if(this.getUserName().equals(room.getRoomMaster().getUserName())) {
@@ -65,6 +74,7 @@ public class User implements Runnable{
 		}else {
 			server.getNoRoomUser().remove(this);
 		}
+		
 		System.out.println("客户端： "+ client +" End");
 	}
 	
@@ -134,6 +144,12 @@ public class User implements Runnable{
 				case 8:
 					UserRegister();
 					break;
+				case 9:
+					UserSendFile(length);
+					return;
+				case 10:
+					GetAllFileInRoom(length);
+					break;
 				}
 				messageLength -= length+4;
 			}else {
@@ -146,7 +162,28 @@ public class User implements Runnable{
 			}}
 		}catch (Exception e) {  }
 	}
-
+	private void UserSendFile(int subLength) {
+		byte[] temp_b;
+		try {
+			String fileName = getStringFromBuffer();
+			Long fileLength = getLongFromBuffer();
+			messageLength -= subLength+4;
+			if(messageLength>0) {
+				byte[] bytes = new byte[messageLength];
+				System.arraycopy(buffer,readOffset,bytes,0,messageLength);
+				temp_b = server.UserSendFile(this, this.in,fileName,fileLength,bytes);
+			}else {
+				byte[] bytes = new byte[0];
+				temp_b = server.UserSendFile(this, this.in,fileName,fileLength,bytes);
+			}
+			if(temp_b.length>0) {
+				System.arraycopy(temp_b,0,buffer,0,temp_b.length);
+				messageLength = temp_b.length;
+			}else {
+				messageLength = 0;
+			}
+		}catch(Exception e) {}
+	}
 	private void UserLogin() throws UnsupportedEncodingException {
 		String userName = getStringFromBuffer();		
 
@@ -201,7 +238,10 @@ public class User implements Runnable{
 		readOffset += length-4;
 		server.FindAllRooms(this);
 	}
-	
+	private void GetAllFileInRoom(int length) {
+		readOffset += length-4;
+		server.GetAllFileInRoom(this);
+	}
 	
 	public void SendMessage(String message,int Type) {
 		try {
@@ -294,7 +334,14 @@ public class User implements Runnable{
 			readOffset += byteL;
 			return stringMessage;
 		}
-	
+		private Long getLongFromBuffer() throws UnsupportedEncodingException {
+			readOffset += 4;
+			byte[] messagebyte = new byte[8];
+			System.arraycopy(buffer,readOffset,messagebyte,0,messagebyte.length);
+			Long l = bytes2Long(messagebyte);
+			readOffset += 8;
+			return l;
+		}
 	private byte[] TurnIntToBytes(int i) {
 		byte[] b = new byte[4]; 
 		b[0] = (byte) (i & 0xff); 
@@ -310,7 +357,15 @@ public class User implements Runnable{
 		return i;
 	}
 	
-	
+	public static long bytes2Long(byte[] byteNum) {
+		long num = 0;
+		for (int ix = 0; ix < 8; ++ix) {
+			num <<= 8;
+			num |= (byteNum[ix] & 0xff);
+		}
+		return num;
+	}
+
 	public Room getRoom() {
 		return room;
 	}

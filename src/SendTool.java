@@ -31,4 +31,13 @@ public class SendTool {
 		System.out.println("FindAllRoom: "+allNoLockRoomName+" ||| "+allLockedRoomName);
 		user.SendMessage(allNoLockRoomName,allLockedRoomName, 7);
 	}
+	public static void GetAllFileInRoomReturn (User user,String filesName) {
+		System.out.println("发送所有文件名： "+filesName);
+		user.SendMessage(filesName, 10);
+	}
+	public static void UserSendFileReturn(User user,String succeedOrNot,String error) {
+		if (error==null)error="";
+		System.out.println("接受文件: "+succeedOrNot+" error: "+error);
+		user.SendMessage(succeedOrNot, error, 9);
+	}
 }

@@ -1,3 +1,6 @@
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -42,6 +45,7 @@ public class SocketServer implements Runnable{
 		catch (Exception e) {
 	    	  System.out.println(e);
 	      }
+		
 		System.out.println("服务器：GG");
 	}
 
@@ -104,6 +108,11 @@ public class SocketServer implements Runnable{
 		noRoomUser.remove(user);
 		Rooms.add(t_room);
 		}
+		//建个文件夹
+		File file = new File(".\\Rooms\\"+roomName);
+		if(!file.exists()) {
+			file.mkdir();
+        }
 		SendTool.BuildRoomReturn(user, "true", roomName);
 	}
 	
@@ -142,6 +151,8 @@ public class SocketServer implements Runnable{
 		if(t_Users.size()<=1) {
 			t_Room.RemoveUser(user);
 			Rooms.remove(t_Room);
+			
+			DeleteRoomFile(t_Room.getRoomName());
 		}else {
 			t_Room.RemoveUser(user);
 			if(user.getUserName().equals(t_Room.getRoomMaster().getUserName())) {
@@ -156,6 +167,74 @@ public class SocketServer implements Runnable{
 		SendTool.FindAllRoomsReturn(user, findAllUnLockRooms(), findAllLockedRooms());
 	}
 	
+	public void GetAllFileInRoom(User user) {
+		String filesName = "";
+		String path = ".\\Rooms\\"+user.getRoom().getRoomName();
+		File dir=new File(path);
+        if(dir.exists()){
+            File[] tmp=dir.listFiles();
+            for(int i=0;i<tmp.length;i++){
+            	filesName += tmp[i].getName();
+            	filesName += ",";
+            }
+        }
+		if(filesName.equals("")) {
+			filesName = "None";
+		}
+		SendTool.GetAllFileInRoomReturn(user, filesName);
+	}
+	
+	FileOutputStream fos;
+	public byte[] UserSendFile(User user,DataInputStream in,String fileName,Long fileLength,byte[] b) {
+		byte[] t_b = new byte[0];
+		try {
+		String roomName = user.getRoom().getRoomName();
+		File directory = new File(".\\Rooms\\"+roomName);
+        if(!directory.exists()) {
+            directory.mkdir();
+        }
+        File file = new File(directory.getAbsolutePath() + File.separatorChar + fileName);
+        fos = new FileOutputStream(file);
+        // 开始接收文件
+        byte[] bytes = new byte[2048];
+        int length = 0;
+        if(b.length>0) {
+        	fos.write(b, 0, b.length);
+            fos.flush();
+            fileLength -= b.length;
+        }
+        
+        while((length = in.read(bytes, 0, bytes.length)) != -1) {
+        	//System.out.println("length值："+length);
+        	if(fileLength>=length) {
+        		fos.write(bytes, 0, length);
+        		fos.flush();
+        		fileLength -= length;
+        		System.out.println("fileLength: "+fileLength);
+        		if(fileLength<=0)break;
+            }else {
+            	fos.write(bytes, 0, fileLength.intValue());
+        		fos.flush();
+        		length -= fileLength.intValue();
+        		System.out.println("fileLength: "+fileLength + " length-fileLength: "+length);
+        		t_b = new byte[length];
+        		System.arraycopy(bytes,fileLength.intValue(),t_b,0,t_b.length);
+        		break;
+			}
+        }
+		}catch(Exception e) {
+			SendTool.UserSendFileReturn(user, "false", e.toString());
+			System.out.println("出错了："+e.toString());
+		}
+		finally {
+		 try {
+             if(fos != null)
+                 fos.close();
+         } catch (Exception e) {}
+		}
+		SendTool.UserSendFileReturn(user, "true", "");
+		return t_b;
+	}
 	//暂时没写
 	public void ServerMessage(String serverMessage,User user) {
 		
@@ -207,6 +286,30 @@ public class SocketServer implements Runnable{
 		}
 		return roomNames;
 	}
+	public void DeleteRoomFile(String roomName) {
+		File directory = new File(".\\Rooms\\"+roomName);
+        if(directory.exists()) {
+        	if (directory.isFile())
+        		directory.delete();
+            else
+                delDir(directory.getAbsolutePath());
+        }
+	}
+	 private void delDir(String path){
+         File dir=new File(path);
+         if(dir.exists()){
+             File[] tmp=dir.listFiles();
+             for(int i=0;i<tmp.length;i++){
+                 if(tmp[i].isDirectory()){
+                     delDir(path+"/"+tmp[i].getName());
+                 }
+                 else{
+                     tmp[i].delete();
+                 }
+             }
+             dir.delete();
+         }
+     }
 	//getter and setter
 	public List<User> getNoRoomUser() {
 		return noRoomUser;
